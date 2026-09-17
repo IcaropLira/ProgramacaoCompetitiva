@@ -1,0 +1,30 @@
+import java.io.*;
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        String[] primeira = br.readLine().split(" ");
+        
+        int n = Integer.parseInt(primeira[0]);
+        int target = Integer.parseInt(primeira[1]);
+        
+        String[] linha = br.readLine().split(" ");
+        
+        HashMap<Integer, Integer> mapa = new HashMap<>();
+        
+        for (int i = 0; i < n; i++) {
+            int atual = Integer.parseInt(linha[i]);
+            int complemento = target - atual;
+            
+            if (mapa.containsKey(complemento)) {
+                System.out.println((mapa.get(complemento) + 1) + " " + (i + 1));
+                return;
+            }
+            
+            mapa.put(atual, i);
+        }
+        
+        System.out.println("IMPOSSIBLE");
+    }
+}
