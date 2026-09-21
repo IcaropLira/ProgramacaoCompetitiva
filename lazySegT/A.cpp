@@ -57,16 +57,13 @@ struct segt{
     ll query(int l, int r, int node, int s, int e) {
         push(l, r, node);
         if (l >= s && r <= e){
-            cout << l << r << endl;
             return tree[node];
         }
         if (r < s || l > e){
             return 0;
         }
         int mid = (l + r) / 2;
-        query(l, mid, node * 2, s, e);
-        query(mid + 1, r, node * 2 + 1, s, e);
-        return tree[node * 2] + tree[node * 2 + 1];
+        return query(l, mid, node * 2, s, e) + query(mid + 1, r, node * 2 + 1, s, e);
     }
 
     void push(int l, int r, int node){
