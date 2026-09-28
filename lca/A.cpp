@@ -73,9 +73,9 @@ int main(){
 			cout << y << endl;
 			continue;
 		}
-		if (dep[x] - dep[lca_xy] > z){
-			swap(x, y);
-			z = dist_xy - z;
+		if (dep[x] - dep[lca_xy] <= z){
+ 			   swap(x, y);
+			   z = dist_xy - z;
 		}
 		for (int i = 0; i < LOG; i++){
 			if (z & (1LL << i)) {
