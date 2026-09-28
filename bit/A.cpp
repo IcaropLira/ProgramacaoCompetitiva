@@ -34,6 +34,7 @@ struct bit{
             res += l[e];
             e -= get_lsb(e);
         }
+        
         while (s > 0){
             res -= l[s];
             s -= get_lsb(s);
