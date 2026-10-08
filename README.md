@@ -1,1 +1,5 @@
 ﻿# ProgramacaoCompetitiva
+
+git add .
+git commit -m "nome"
+git push origin "nomeBranch"
