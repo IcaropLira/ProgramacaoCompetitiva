@@ -1,0 +1,1 @@
+print(abs(len(set(map(int, input().split()))) - 4))
