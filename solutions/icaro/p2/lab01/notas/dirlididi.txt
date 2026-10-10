@@ -1,0 +1,1 @@
+python3 dirlididi.py submit NIGzVIuci Ais1f9ZETRK0 Notas.java

@@ -1,0 +1,4 @@
+algoritmos/*
+!algoritmos/*.cpp
+!algoritmos/*.md
+!algoritmos/*/

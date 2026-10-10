@@ -1,0 +1,1 @@
+python3 dirlididi.py submit SlfR6pBmC Ais1f9ZETRK0 Wally.java
