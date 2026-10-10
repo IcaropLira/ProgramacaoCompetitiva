@@ -26,6 +26,7 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           python3 - <<'PY'
           import json
@@ -39,6 +40,7 @@ jobs:
           author = os.environ["PR_AUTHOR"]
           base = os.environ["BASE_SHA"]
           head = os.environ["HEAD_SHA"]
+          head_ref = os.environ["PR_HEAD_REF"]
 
           folders = {
               login.casefold(): folder
@@ -73,7 +75,12 @@ jobs:
               sys.exit("Nenhum arquivo alterado foi encontrado.")
 
           prefix = f"solutions/{folder}/"
-          invalid = [p for p in files if not p.startswith(prefix)]
+          trusted_migration = (
+              author.casefold() == "icaroplira"
+              and head_ref == "migration/initial-solutions"
+              and all(p.startswith("solutions/") for p in files)
+          )
+          invalid = [] if trusted_migration else [p for p in files if not p.startswith(prefix)]
 
           if invalid:
               print(f"Autor do PR: {author}")
@@ -83,5 +90,8 @@ jobs:
                   print(f" - {path}")
               sys.exit(1)
 
-          print(f"Validado: {author}; {len(files)} arquivo(s) em {prefix}")
+          if trusted_migration:
+              print(f"Migracao inicial validada: {len(files)} arquivo(s) em solutions/.")
+          else:
+              print(f"Validado: {author}; {len(files)} arquivo(s) em {prefix}")
           PY
