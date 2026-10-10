@@ -1,0 +1,46 @@
+name: Habilitar auto-merge
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  habilitar:
+    name: habilitar-auto-merge
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Habilitar merge automatico
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          PR_URL="https://github.com/${GH_REPO}/pull/${PR_NUMBER}"
+
+          STATE=$(gh pr view "$PR_URL" \
+            --json state,autoMergeRequest \
+            --jq '[.state, (.autoMergeRequest != null)] | @tsv')
+
+          read -r pr_state auto_enabled <<< "$STATE"
+
+          if [[ "$pr_state" == "MERGED" ]]; then
+            echo "PR ja mesclado."
+            exit 0
+          fi
+
+          if [[ "$auto_enabled" == "true" ]]; then
+            echo "Auto-merge ja habilitado."
+            exit 0
+          fi
+
+          gh pr merge "$PR_URL" --auto --merge
