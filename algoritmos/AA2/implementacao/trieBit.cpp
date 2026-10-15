@@ -4,7 +4,7 @@ using namespace std;
 using ll = long long;
 
 const int LG = 29;
-struct trie {
+struct tarie {
     trie *ch[2];
 
     trie() { ch[0] = ch[1] = nullptr; }
