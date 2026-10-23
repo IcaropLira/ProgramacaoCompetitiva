@@ -16,7 +16,6 @@ void dfs(int no, int pai) {
         if (ch == pai) continue;
         if (tin[ch]) low[no] = min(low[no], tin[ch]);
         else {
-            arv[no].push_back(ch);
             dfs(ch, no);
             low[no] = min(low[no], low[ch]);
             if (tin[no] < low[ch]) {
@@ -31,8 +30,8 @@ int caso = 0;
 void solve() {
     int n, m; cin >> n >> m;
     adj.assign(n + 1, {});
-    tin.resize(n + 1, 0);
-    low.resize(n + 1, 0);
+    tin.assign(n + 1, 0);
+    low.assign(n + 1, 0);
     roads.clear();
     for (int i = 0; i < m; i++) {
         int x, y; cin >> x >> y;
