@@ -1,0 +1,161 @@
+# Este workflow somente prepara PRs; nunca faz push direto na main.
+name: Sincronizar branch pessoal para pasta do integrante
+
+on:
+  push:
+    branches:
+      - caca
+      - henri
+      - icaro
+      - mateus
+      - raul
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: sincronizar-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  preparar-pr:
+    name: preparar-contribuicao
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout da main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Buscar branch enviada
+        env:
+          SOURCE_BRANCH: ${{ github.ref_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_BRANCH"
+          if [[ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            if ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+              git fetch origin "$BEFORE_SHA" || true
+            fi
+            if ! git merge-base --is-ancestor "$BEFORE_SHA" "$AFTER_SHA"; then
+              echo "::error::Push nao fast-forward. Nenhum arquivo foi sincronizado."
+              exit 1
+            fi
+          fi
+
+      - name: Organizar arquivos e validar estrutura
+        id: organizar
+        env:
+          SOURCE_BRANCH: ${{ github.ref_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess, sys
+
+          branch = os.environ["SOURCE_BRANCH"]
+          before = os.environ["BEFORE_SHA"]
+          after = os.environ["AFTER_SHA"]
+          with open("contributors.json", encoding="utf-8") as f:
+              contributors = json.load(f)
+          folders = {folder: folder for folder in contributors.values()}
+          if branch not in folders:
+              sys.exit(f"Branch sem pasta cadastrada: {branch}")
+          folder = folders[branch]
+          zero = "0" * 40
+          if before == zero:
+              parent = subprocess.check_output(
+                  ["git", "rev-list", "--max-parents=0", after], text=True
+              ).splitlines()[-1]
+              diff_args = [parent, after]
+          else:
+              diff_args = [before, after]
+
+          raw = subprocess.check_output(
+              ["git", "diff", "--no-renames", "--name-status", *diff_args, "--"],
+              text=True
+          )
+          changes = []
+          for line in raw.splitlines():
+              parts = line.split("\t", 1)
+              if len(parts) != 2:
+                  continue
+              status, path = parts
+              if path in {".github", "README.md", "CONTRIBUTING.md", "contributors.json"} or path.startswith(".github/"):
+                  sys.exit(f"Arquivo de configuracao/documentacao nao pode ser sincronizado como solucao: {path}")
+              if path.startswith("solutions/"):
+                  pieces = pathlib.PurePosixPath(path).parts
+                  if len(pieces) < 3 or pieces[1] != folder:
+                      sys.exit(f"Branch {branch} tentou alterar pasta de outro integrante: {path}")
+                  destination = path
+              else:
+                  if path.startswith("/") or ".." in pathlib.PurePosixPath(path).parts:
+                      sys.exit(f"Caminho invalido: {path}")
+                  destination = f"solutions/{folder}/{path}"
+              changes.append((status, path, destination))
+
+          if not changes:
+              print("Nenhum arquivo de solucao alterado neste push.")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+                  out.write("has_changes=false\n")
+              sys.exit(0)
+
+          for status, source, destination in changes:
+              target = pathlib.Path(destination)
+              if status == "D":
+                  if target.exists():
+                      target.unlink()
+                      parent = target.parent
+                      while parent != pathlib.Path(f"solutions/{folder}") and parent.exists():
+                          try: parent.rmdir()
+                          except OSError: break
+                          parent = parent.parent
+                  subprocess.run(["git", "rm", "-f", "--ignore-unmatch", "--", destination], check=False)
+                  continue
+              data = subprocess.check_output(["git", "show", f"{after}:{source}"])
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+              subprocess.run(["git", "add", "--", destination], check=True)
+
+          # Garante que a mudanca gerada nao saia da pasta do integrante.
+          staged = subprocess.check_output(["git", "diff", "--cached", "--name-only"], text=True).splitlines()
+          invalid = [p for p in staged if not p.startswith(f"solutions/{folder}/")]
+          if invalid:
+              sys.exit("Arquivos staged fora da pasta autorizada: " + ", ".join(invalid))
+          subprocess.run(["git", "diff", "--cached", "--check"], check=True)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write("has_changes=true\n")
+          print(f"Validado: {len(staged)} arquivo(s) em solutions/{folder}/")
+          PY
+
+      - name: Criar commit de sincronizacao
+        if: steps.organizar.outputs.has_changes == 'true'
+        env:
+          SOURCE_BRANCH: ${{ github.ref_name }}
+          AFTER_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sincroniza ${SOURCE_BRANCH} em solutions/${SOURCE_BRANCH}"
+          SYNC_BRANCH="sync/${SOURCE_BRANCH}-${AFTER_SHA:0:12}"
+          git push origin "HEAD:refs/heads/${SYNC_BRANCH}"
+          PR_URL=$(gh pr list --head "$SYNC_BRANCH" --base main --json url --jq '.[0].url')
+          if [[ -z "$PR_URL" ]]; then
+            PR_URL=$(gh pr create --base main --head "$SYNC_BRANCH" \
+              --title "Sincroniza soluções de ${SOURCE_BRANCH}" \
+              --body "PR gerado automaticamente após push em ${SOURCE_BRANCH}. Os arquivos foram mapeados para `solutions/${SOURCE_BRANCH}/` e validados pelo workflow de sincronização.")
+          fi
+          HEAD_SHA=$(gh pr view "$PR_URL" --json headRefOid --jq '.headRefOid')
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state=success -f context=validar-estrutura \
+            -f description="Estrutura validada pelo workflow de sincronizacao"
+          gh pr merge "$PR_URL" --auto --merge
