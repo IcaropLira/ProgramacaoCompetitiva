@@ -1,3 +1,4 @@
+# Este workflow somente prepara PRs; nunca faz push direto na main.
 name: Sincronizar branch pessoal para pasta do integrante
 
 on:
