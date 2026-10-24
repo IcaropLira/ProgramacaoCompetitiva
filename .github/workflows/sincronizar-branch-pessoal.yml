@@ -9,6 +9,18 @@ on:
       - icaro
       - mateus
       - raul
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: "Branch pessoal para sincronizar"
+        required: true
+        type: choice
+        options:
+          - caca
+          - henri
+          - icaro
+          - mateus
+          - raul
 
 permissions:
   contents: write
@@ -33,27 +45,24 @@ jobs:
 
       - name: Buscar branch enviada
         env:
-          SOURCE_BRANCH: ${{ github.ref_name }}
-          BEFORE_SHA: ${{ github.event.before }}
-          AFTER_SHA: ${{ github.sha }}
+          SOURCE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.ref_name }}
+          AFTER_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.after || github.sha }}
         run: |
           set -euo pipefail
           git fetch origin "$SOURCE_BRANCH"
-          if [[ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
-            if ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
-              git fetch origin "$BEFORE_SHA" || true
-            fi
-            if ! git merge-base --is-ancestor "$BEFORE_SHA" "$AFTER_SHA"; then
-              echo "::error::Push nao fast-forward. Nenhum arquivo foi sincronizado."
-              exit 1
-            fi
+          SOURCE_SHA=$(git rev-parse "origin/$SOURCE_BRANCH")
+          echo "AFTER_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          BASE_SHA=$(git merge-base origin/main "$SOURCE_SHA")
+          if [[ -z "$BASE_SHA" ]]; then
+            echo "::error::Nao foi possivel encontrar ancestral comum com main."
+            exit 1
           fi
+          echo "BASE_SHA=$BASE_SHA" >> "$GITHUB_ENV"
 
       - name: Organizar arquivos e validar estrutura
         id: organizar
         env:
-          SOURCE_BRANCH: ${{ github.ref_name }}
-          BEFORE_SHA: ${{ github.event.before }}
+          SOURCE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.ref_name }}
           AFTER_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -69,17 +78,13 @@ jobs:
           if branch not in folders:
               sys.exit(f"Branch sem pasta cadastrada: {branch}")
           folder = folders[branch]
-          zero = "0" * 40
-          if before == zero:
-              parent = subprocess.check_output(
-                  ["git", "rev-list", "--max-parents=0", after], text=True
-              ).splitlines()[-1]
-              diff_args = [parent, after]
-          else:
-              diff_args = [before, after]
-
+          base = os.environ.get("BASE_SHA", "")
+          if not base:
+              base = subprocess.check_output(
+                  ["git", "merge-base", "origin/main", after], text=True
+              ).strip()
           raw = subprocess.check_output(
-              ["git", "diff", "--no-renames", "--name-status", *diff_args, "--"],
+              ["git", "diff", "--no-renames", "--name-status", base, after, "--"],
               text=True
           )
           changes = []
@@ -102,7 +107,7 @@ jobs:
               changes.append((status, path, destination))
 
           if not changes:
-              print("Nenhum arquivo de solucao alterado neste push.")
+              print("Nenhum arquivo alterado entre o ancestral comum e o ultimo commit.")
               with open(os.environ["GITHUB_OUTPUT"], "a") as out:
                   out.write("has_changes=false\n")
               sys.exit(0)
