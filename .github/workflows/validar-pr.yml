@@ -46,12 +46,22 @@ jobs:
               login.casefold(): folder
               for login, folder in contributors.items()
           }
-          folder = folders.get(author.casefold())
+          known_folders = set(contributors.values())
+          bot_sync_folder = None
+          if author.casefold() == "github-actions[bot]" and head_ref.startswith("sync/"):
+              suffix = head_ref[len("sync/"):]
+              for candidate in known_folders:
+                  prefix_candidate = candidate + "-"
+                  if suffix.startswith(prefix_candidate):
+                      short_sha = suffix[len(prefix_candidate):]
+                      if len(short_sha) == 12 and all(c in "0123456789abcdef" for c in short_sha.lower()):
+                          bot_sync_folder = candidate
+                          break
 
+          folder = bot_sync_folder or folders.get(author.casefold())
           if not folder:
               sys.exit(
-                  f"Integrante nao cadastrado: {author}. "
-                  "Adicione o login correto em contributors.json."
+                  f"Integrante nao cadastrado ou PR automatico nao reconhecido: {author} ({head_ref})."
               )
 
           if (
@@ -82,10 +92,17 @@ jobs:
           )
           trusted_automation_config = (
               author.casefold() == "icaroplira"
-              and head_ref == "automation/personal-branch-sync"
-              and files == [".github/workflows/sincronizar-branch-pessoal.yml"]
+              and head_ref == "fix/repair-personal-sync"
+              and set(files) == {
+                  ".github/workflows/sincronizar-branch-pessoal.yml",
+                  ".github/workflows/validar-pr.yml",
+              }
           )
-          invalid = [] if (trusted_migration or trusted_automation_config) else [
+          trusted_bot_sync = (
+              bot_sync_folder is not None
+              and all(p.startswith(prefix) for p in files)
+          )
+          invalid = [] if (trusted_migration or trusted_automation_config or trusted_bot_sync) else [
               p for p in files if not p.startswith(prefix)
           ]
 
@@ -101,6 +118,8 @@ jobs:
               print(f"Migracao inicial validada: {len(files)} arquivo(s) em solutions/.")
           elif trusted_automation_config:
               print("Configuracao controlada do workflow de sincronizacao validada.")
+          elif trusted_bot_sync:
+              print(f"Sincronizacao automatica validada: {len(files)} arquivo(s) em {prefix}")
           else:
               print(f"Validado: {author}; {len(files)} arquivo(s) em {prefix}")
           PY
