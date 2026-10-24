@@ -92,7 +92,7 @@ jobs:
           )
           trusted_automation_config = (
               author.casefold() == "icaroplira"
-              and head_ref == "fix/repair-personal-sync"
+              and head_ref in {"fix/repair-personal-sync", "fix/sync-error-whitespace"}
               and set(files) == {
                   ".github/workflows/sincronizar-branch-pessoal.yml",
                   ".github/workflows/validar-pr.yml",
