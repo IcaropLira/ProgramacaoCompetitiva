@@ -80,7 +80,22 @@ jobs:
               and head_ref == "migration/initial-solutions"
               and all(p.startswith("solutions/") for p in files)
           )
-          invalid = [] if trusted_migration else [p for p in files if not p.startswith(prefix)]
+          # Excecao pontual para mover os arquivos que ficaram na raiz
+          # nos PRs antigos; nao libera caminhos extras para outros PRs.
+          root_repair_paths = {
+              "dp/A", "dp/A.cpp", "dp/Moeda", "dp/Moeda.cpp", "trie/A.cpp"
+          }
+          trusted_root_repair = (
+              author.casefold() == "icaroplira"
+              and head_ref == "fix/organize-root-solutions"
+              and all(
+                  p.startswith("solutions/icaro/") or p in root_repair_paths
+                  for p in files
+              )
+          )
+          invalid = [] if (trusted_migration or trusted_root_repair) else [
+              p for p in files if not p.startswith(prefix)
+          ]
 
           if invalid:
               print(f"Autor do PR: {author}")
@@ -92,6 +107,8 @@ jobs:
 
           if trusted_migration:
               print(f"Migracao inicial validada: {len(files)} arquivo(s) em solutions/.")
+          elif trusted_root_repair:
+              print(f"Correcao pontual de caminhos validada: {len(files)} arquivo(s).")
           else:
               print(f"Validado: {author}; {len(files)} arquivo(s) em {prefix}")
           PY
