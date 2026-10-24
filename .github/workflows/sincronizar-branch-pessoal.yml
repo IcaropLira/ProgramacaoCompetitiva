@@ -46,24 +46,23 @@ jobs:
       - name: Buscar branch enviada
         env:
           SOURCE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.ref_name }}
-          AFTER_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.after || github.sha }}
+          AFTER_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           git fetch origin "$SOURCE_BRANCH"
           SOURCE_SHA=$(git rev-parse "origin/$SOURCE_BRANCH")
           echo "AFTER_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
-          BASE_SHA=$(git merge-base origin/main "$SOURCE_SHA")
-          if [[ -z "$BASE_SHA" ]]; then
-            echo "::error::Nao foi possivel encontrar ancestral comum com main."
-            exit 1
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "AFTER_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           fi
-          echo "BASE_SHA=$BASE_SHA" >> "$GITHUB_ENV"
 
       - name: Organizar arquivos e validar estrutura
         id: organizar
         env:
           SOURCE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.ref_name }}
-          AFTER_SHA: ${{ github.sha }}
+          AFTER_SHA: ${{ env.AFTER_SHA }}
+          BEFORE_SHA: ${{ github.event_name == 'push' && github.event.before || '' }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -72,19 +71,22 @@ jobs:
           branch = os.environ["SOURCE_BRANCH"]
           before = os.environ["BEFORE_SHA"]
           after = os.environ["AFTER_SHA"]
+          if os.environ["EVENT_NAME"] == "workflow_dispatch":
+              parents = subprocess.check_output(
+                  ["git", "rev-list", "--parents", "-n", "1", after], text=True
+              ).split()
+              before = parents[1] if len(parents) > 1 else after
           with open("contributors.json", encoding="utf-8") as f:
               contributors = json.load(f)
           folders = {folder: folder for folder in contributors.values()}
           if branch not in folders:
               sys.exit(f"Branch sem pasta cadastrada: {branch}")
           folder = folders[branch]
-          base = os.environ.get("BASE_SHA", "")
-          if not base:
-              base = subprocess.check_output(
-                  ["git", "merge-base", "origin/main", after], text=True
-              ).strip()
+          if not before or before == "0" * 40:
+              print("Push inicial sem commit anterior identificavel; abortando por seguranca.")
+              sys.exit(1)
           raw = subprocess.check_output(
-              ["git", "diff", "--no-renames", "--name-status", base, after, "--"],
+              ["git", "diff", "--no-renames", "--name-status", before, after, "--"],
               text=True
           )
           changes = []
