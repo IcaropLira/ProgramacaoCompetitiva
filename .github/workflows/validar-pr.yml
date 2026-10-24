@@ -80,7 +80,14 @@ jobs:
               and head_ref == "migration/initial-solutions"
               and all(p.startswith("solutions/") for p in files)
           )
-          invalid = [] if trusted_migration else [p for p in files if not p.startswith(prefix)]
+          trusted_automation_config = (
+              author.casefold() == "icaroplira"
+              and head_ref == "automation/personal-branch-sync"
+              and files == [".github/workflows/sincronizar-branch-pessoal.yml"]
+          )
+          invalid = [] if (trusted_migration or trusted_automation_config) else [
+              p for p in files if not p.startswith(prefix)
+          ]
 
           if invalid:
               print(f"Autor do PR: {author}")
@@ -92,6 +99,8 @@ jobs:
 
           if trusted_migration:
               print(f"Migracao inicial validada: {len(files)} arquivo(s) em solutions/.")
+          elif trusted_automation_config:
+              print("Configuracao controlada do workflow de sincronizacao validada.")
           else:
               print(f"Validado: {author}; {len(files)} arquivo(s) em {prefix}")
           PY
