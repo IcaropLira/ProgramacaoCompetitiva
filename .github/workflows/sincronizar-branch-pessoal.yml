@@ -177,7 +177,7 @@ jobs:
           if [[ -z "$PR_URL" ]]; then
             PR_URL=$(gh pr create --base main --head "$SYNC_BRANCH" \
               --title "Sincroniza soluções de ${SOURCE_BRANCH}" \
-              --body "PR gerado automaticamente a partir do commit ${AFTER_SHA} da branch ${SOURCE_BRANCH}. Os arquivos foram mapeados para `solutions/${SOURCE_BRANCH}/`.")
+              --body "PR gerado automaticamente a partir do commit ${AFTER_SHA} da branch ${SOURCE_BRANCH}. Os arquivos foram mapeados para solutions/${SOURCE_BRANCH}/.")
           fi
           HEAD_SHA=$(gh pr view "$PR_URL" --json headRefOid --jq '.headRefOid')
           gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
