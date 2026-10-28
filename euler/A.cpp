@@ -33,16 +33,16 @@ struct BIT{
     }
 };
 
-    int dfs(int no, int pai, int idx) {
-        idx += 1;
-        in[no] = idx;
-        for (int ch: adj[no]) {
-            if (ch == pai) continue;
-            idx = dfs(ch, no, idx);
-        }
-        out[no] = idx;
-        return idx;
+int dfs(int no, int pai, int idx) {
+    idx += 1;
+    in[no] = idx;
+    for (int ch: adj[no]) {
+        if (ch == pai) continue;
+        idx = dfs(ch, no, idx);
     }
+    out[no] = idx;
+    return idx;
+}
 
 void solve() {
     int n, q; cin >> n >> q;
