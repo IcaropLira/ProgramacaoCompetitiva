@@ -9,7 +9,7 @@ void solve() {
     int n, m; cin >> n >> m;
 
     vector<vector<int>> adj(n + 1);
-    vector<ll> in(n + 1), dist(n + 1, 1e9), ant(n + 1, 0);
+    vector<ll> in(n + 1), ant(n + 1, 0);
     queue<int> fila;
 
     for (int i = 0; i < m; i++) {
@@ -18,18 +18,26 @@ void solve() {
         in[y] += 1;
     }
 
-    fila.push(1);
-    dist[1] = 0;
+    for (int i = 1; i <= n; i++) {
+        if (in[i] == 0) {
+            fila.push(i);
+        }
+    }
+    
+    ant[1] = 1;
 
     while (!fila.empty()) {
         int top = fila.front();
         fila.pop();
         for (int ch: adj[top]) {
-            ant[ch] = (ant[ch] + 1) % mod;
-            fila.push(ch);
+            ant[ch] = (ant[ch] + ant[top]) % mod;
+            in[ch] -= 1;
+            if (in[ch] == 0) {
+                fila.push(ch);
+            }
         }
     }
-    cout << ant[n] % mod << endl;
+    cout << ant[n] << endl;
 
 }
 
