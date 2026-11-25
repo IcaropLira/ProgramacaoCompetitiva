@@ -1,5 +1,3 @@
-package eda;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -16,7 +14,7 @@ public class BSTTest {
     }
 
     public static void main(String[] args) {
-        BST bst = new BST();
+        BST2 bst = new BST2();
         for (int x : new int[]{85, 49, 97, 7, 53, 93, 51, 81, 65, 55}) {
             bst.add(x);
         }
